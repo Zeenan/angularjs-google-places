@@ -47,19 +47,35 @@ provider('ngGPlacesAPI', function () {
         return pResp;
     };
 
-    this.$get = function ($q, gMaps, gPlaces, $window) {
+    this.$get = function ($rootScope, $q, gMaps, gPlaces, $window) {
 
         function commonAPI(args) {
             var req = angular.copy(defaults, {});
             angular.extend(req, args);
             var deferred = $q.defer();
             var elem, service;
+            var result = {};
+            result.dataSize = 0;
+            result.data = [];
 
-            function callback(results, status) {
+            function callback(results, status, pagination) {
                 if (status == gPlaces.PlacesServiceStatus.OK) {
-                  return deferred.resolve(req._parser(results));
+                    $rootScope.$apply(function () {
+
+                        result.data[result.dataSize++] = req._parser(results);
+                        result.pagination = pagination;
+
+                        if (result.pagination.hasNextPage) {
+                            result.pagination.nextPage();
+                            setTimeout(2000);
+                        } else {
+                            return deferred.resolve(result);
+                        }
+                    });
                 } else {
-                  deferred.reject(req._errorMsg);
+                    $rootScope.$apply(function () {
+                        deferred.reject(req._errorMsg);
+                    });
                 }
             }
             if (req._genLocation) {
@@ -97,7 +113,7 @@ provider('ngGPlacesAPI', function () {
         };
     };
 
-    this.$get.$inject = ['$q', 'gMaps', 'gPlaces', '$window'];
+    this.$get.$inject = ['$rootScope', '$q', 'gMaps', 'gPlaces', '$window'];
 
     this.setDefaults = function (args) {
         angular.extend(defaults, args);
